@@ -329,9 +329,30 @@ namespace jsonnet {
         // Compile the preview Jsonnet file.
         const extStrs = workspace.extStrs();
         const libPaths = workspace.libPaths();
+
+        const meta = this.parseMetaHeader(sourceDoc);
+        let metaEnv = {};
+        let metaArgs = '';
+
+        for (const k of Object.keys(meta.extStr)) {
+          metaEnv['JSONNET_EXT_STR_'+k] = meta.extStr[k];
+          metaArgs += ` --ext-str 'JSONNET_EXT_STR_${k}' --ext-code '${k}=std.extVar("JSONNET_EXT_STR_${k}")'`;
+        }
+        for (const k of Object.keys(meta.extCode)) {
+          metaEnv['JSONNET_EXT_CODE_'+k] = meta.extCode[k];
+          metaArgs += ` --ext-code 'JSONNET_EXT_CODE_${k}' --ext-code '${k}=std.extVar("JSONNET_EXT_CODE_${k}")'`;
+        }
+        for (const k of Object.keys(meta.tlaStr)) {
+          metaEnv['JSONNET_TLA_STR_'+k] = meta.tlaStr[k];
+          metaArgs += ` --ext-str 'JSONNET_TLA_STR_${k}' --tla-code '${k}=std.extVar("JSONNET_TLA_STR_${k}")'`;
+        }
+        for (const k of Object.keys(meta.tlaCode)) {
+          metaEnv['JSONNET_TLA_CODE_'+k] = meta.tlaCode[k];
+          metaArgs += ` --ext-code 'JSONNET_TLA_CODE_${k}' --tla-code '${k}=std.extVar("JSONNET_TLA_CODE_${k}")'`;
+        }
         const jsonOutput = execSync(
-          `${jsonnet.executable} ${libPaths} ${extStrs} ${sourceFile}`
-        ).toString();
+            `${jsonnet.executable} ${libPaths} ${extStrs} ${metaArgs} ${sourceFile}`,
+            {env: metaEnv}).toString();
 
         // Cache.
         this.previewCache = this.previewCache.set(sourceUri, jsonOutput);
@@ -343,6 +364,55 @@ namespace jsonnet {
         return failure;
       }
     }
+
+    private parseMetaHeader = (sourceDoc: vs.TextDocument): any => {
+      let meta = {
+        extStr: {},
+        extCode: {},
+        tlaStr: {},
+        tlaCode: {},
+      };
+      for (let line = 0; line < sourceDoc.lineCount; ++line) {
+        const textLine = sourceDoc.lineAt(line);
+        const text = textLine.text;
+
+        // must be something
+        if (!text) { break; }
+
+        // must be a comment. first non comment line stops header parsing
+        if (!text.startsWith('//')) { break; }
+
+        // must have at least 4 characters: comment, marker, space
+        // this one soft-fails
+        if (text.length < 4) { continue; }
+
+        let metaObj = {};
+        switch (text[2]) {
+          case 'e':
+            metaObj = meta.extStr;
+            break;
+          case 'E':
+            metaObj = meta.extCode;
+            break;
+          case 't':
+            metaObj = meta.tlaStr;
+            break;
+          case 'T':
+            metaObj = meta.tlaCode;
+            break;
+          default:
+            continue;  // soft-fail
+        }
+
+        const match = textLine.text.match(this.MetaHeader);
+        if (match) {
+          metaObj[match[1]] = match[2];
+        }
+      }
+      return meta;
+    }
+
+    private const MetaHeader = new RegExp('^\\/\\/[eEtT]\\s+(\\w+)\\s*:\\s*(.+)$');
 
     public delete = (document: vs.TextDocument): void => {
       const previewUri = document.uri.query.toString();
