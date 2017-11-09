@@ -22,6 +22,23 @@ After this, you can use the keybinding for `jsonnet.previewToSide` (by
 default this is `shift+ctrl+i`, or `shift+cmd+i` on macOS), and the
 preview pane will open as in the picture above.
 
+## Support for external variables and top-level arguments
+
+You can define custom external variables and top-level arguments in the header
+of your jsonnet file to be used in render previews. It's handy in case if
+compile the file with some externally defined variables or tla but still want to
+use the preview functionality.
+
+The syntax for them is as follows:
+
+`//e key: some value` defines external variable `key` with value `some value`
+
+`//E key: {a: 1}` defines external variable `key` with jsonnet code of `{a: 1}`
+
+`//t arg: test` defines top-level argument `arg` with value `test`
+
+`//T key: {a: 1}` defines top-level argument `key` with jsonnet code of `{a: 1}`
+
 ## Customization
 
 This extension exposes the following settings, which can be cusomized
